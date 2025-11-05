@@ -1,91 +1,41 @@
 import { useParams, Link } from "react-router-dom";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
-import { Camera, FlipHorizontal, Settings, ArrowLeft, Share2, Heart, ShoppingCart, Maximize2 } from "lucide-react";
-import { toast } from "sonner";
+import { Camera, FlipHorizontal, Settings, ArrowLeft, Share2, ShoppingCart, Maximize2 } from "lucide-react";
 import Navigation from "@/components/Navigation";
 import glasses1 from "@/assets/glasses-1.png";
 import { motion, AnimatePresence } from "framer-motion";
 
+// **IMPORTANT**: This URL MUST match the Flask server's address and port (e.g., 
+// http://<YOUR_IP_ADDRESS>:5000/video_feed if running on a separate machine).
+const PYTHON_STREAM_URL = "http://localhost:5000/video_feed"; 
+
+const product = {
+  id: 1, 
+  name: "Premium Blue Eyeglasses",
+  price: 149.99,
+  image: glasses1,
+};
+
 const TryOn = () => {
   const { id } = useParams();
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
-  const [faceDetected, setFaceDetected] = useState(false);
+  const [faceDetected, setFaceDetected] = useState(true); // Assumed true as the server is running
   const [showSettings, setShowSettings] = useState(false);
   const [scale, setScale] = useState([100]);
   const [transparency, setTransparency] = useState([100]);
-  const [cameraActive, setCameraActive] = useState(false);
+  
+  // Note: These functions are stubs. Real implementation would require a dedicated 
+  // API endpoint on the Flask server and communication (e.g., WebSockets) from the React app.
 
-  const product = {
-    id: parseInt(id || "1"),
-    name: "Premium Blue Eyeglasses",
-    price: 149.99,
-    image: glasses1,
-  };
-
-  useEffect(() => {
-    startCamera();
-    return () => stopCamera();
-  }, []);
-
-  const startCamera = async () => {
-    try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "user" },
-        audio: false,
-      });
-      setStream(mediaStream);
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
-      setCameraActive(true);
-      setTimeout(() => setFaceDetected(true), 1000);
-      toast.success("Camera activated");
-    } catch (error) {
-      console.error("Error accessing camera:", error);
-      toast.error("Could not access camera. Please check permissions.");
-    }
-  };
-
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-      setCameraActive(false);
-      setFaceDetected(false);
-    }
+  const flipCamera = () => {
+    // This action would require an API call to the Python server to change its VideoCapture index/source.
+    console.log("Flipping camera: Requires a dedicated Flask endpoint.");
   };
 
   const captureScreenshot = () => {
-    if (videoRef.current && canvasRef.current) {
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext("2d");
-      if (ctx) {
-        ctx.drawImage(video, 0, 0);
-        canvas.toBlob((blob) => {
-          if (blob) {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `tryon-${Date.now()}.png`;
-            a.click();
-            toast.success("Screenshot captured!");
-          }
-        });
-      }
-    }
-  };
-
-  const flipCamera = async () => {
-    stopCamera();
-    toast.info("Flipping camera...");
-    setTimeout(() => startCamera(), 500);
+    // Capturing an MJPEG stream is complex and is best done on the server or via a second WebSocket stream.
+    alert("Screenshot requires an additional endpoint on the Python server to return a static image.");
   };
 
   return (
@@ -95,7 +45,7 @@ const TryOn = () => {
       <div className="container mx-auto px-4 py-6">
         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
           <Button variant="glass" asChild className="mb-4">
-            <Link to={`/product/${id}`}>
+            <Link to={`/product/${id || 1}`}>
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Product
             </Link>
@@ -110,21 +60,17 @@ const TryOn = () => {
           >
             <div className="relative glass-strong rounded-3xl overflow-hidden shadow-2xl">
               <div className="aspect-video bg-gradient-to-br from-muted to-background relative">
-                <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
                 
-                {faceDetected && (
-                  <div 
-                    className="absolute inset-0 flex items-center justify-center pointer-events-none"
-                    style={{ opacity: transparency[0] / 100 }}
-                  >
-                    <img
-                      src={product.image}
-                      alt="Virtual Try-On"
-                      className="max-w-[40%] h-auto"
-                      style={{ transform: `scale(${scale[0] / 100})` }}
-                    />
-                  </div>
-                )}
+                {/* *** STREAM EMBEDDED HERE *** */}
+                {/* This <img> tag displays the live processed stream from your Python backend */}
+                <img 
+                  src={PYTHON_STREAM_URL}
+                  alt="Virtual Try-On Stream from Python Server"
+                  className="w-full h-full object-cover aspect-video" 
+                  // Styles for stream
+                />
+                
+                {/* --- UI Overlays (Status, Buttons) --- */}
 
                 <motion.div 
                   className="absolute top-4 left-4 flex items-center gap-2 glass-strong px-4 py-2 rounded-full text-sm shadow-lg"
@@ -136,7 +82,7 @@ const TryOn = () => {
                     animate={faceDetected ? { scale: [1, 1.2, 1] } : {}}
                     transition={{ repeat: Infinity, duration: 2 }}
                   />
-                  <span className="font-medium">{faceDetected ? 'Face Detected' : 'No Face'}</span>
+                  <span className="font-medium">{faceDetected ? 'Face Detected (Remote)' : 'Stream Active'}</span>
                 </motion.div>
 
                 <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 flex gap-3">
@@ -158,9 +104,9 @@ const TryOn = () => {
                 </div>
               </div>
             </div>
-            <canvas ref={canvasRef} className="hidden" />
           </motion.div>
 
+          {/* Right Column (Settings/Buttons) */}
           <motion.div 
             className="space-y-6"
             initial={{ opacity: 0, x: 50 }}
